@@ -1,0 +1,9 @@
+Things to remember for hooking up HIDGeneric to USB:
+
+Changed:
+    USBD_Send(HID_TX, p, len+1);
+To 
+    sendHidFn_mp(p, len+1);
+
+This means that the USB bridge needs to provide a HID send function and it
+must pass the HID_TX to USBD_Send.
