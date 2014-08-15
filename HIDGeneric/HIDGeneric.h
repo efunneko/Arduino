@@ -20,6 +20,7 @@
 
 #if defined __cplusplus
 
+#include "Arduino.h"
 
 // HIDGeneric
 //
@@ -30,25 +31,27 @@
 
 class HIDGeneric {
   public:
-
-    // HIDGeneric public methods
-    HIDGeneric(HIDTransport* transport_p);
-    begin(void);
-
-    int	GetInterface(uint8_t* interfaceNum);
-    int HID_GetDescriptor(int i);
-    bool HID_Setup(Setup& setup);
-    void HID_SendReport(uint8_t id, const void* data, uint32_t len);
-
+    
     // Transport class
     //
     // This is a pure virtual class. It should be inherited from to
     // provide a bridge into the appropriate transport
     class Transport {
+      public:
         Transport(){}
         virtual ~Transport(){};
-        virtual void sendReport(uint8_t id, const void* data, uint32_t len) = 0;        
+        virtual void sendReport(const void* data, uint32_t len) = 0;        
+        virtual int sendControl(uint8_t flags, const void* d, uint32_t len) = 0;
     };
+
+    // HIDGeneric public methods
+    HIDGeneric(Transport* transport_p);
+
+    void begin(void);
+    int	getInterface(uint8_t* interfaceNum);
+    int getDescriptor(int i);
+    bool setup(Setup& setup);
+    void sendReport(uint8_t id, const void* data, uint32_t len);
 
     // Mouse class
     //
@@ -57,24 +60,25 @@ class HIDGeneric {
       public:
         
         // Button modifiers
-        static const uint8_t MOUSE_LEFT   = 1;
-        static const uint8_t MOUSE_RIGHT  = 2;
-        static const uint8_t MOUSE_MIDDLE = 4;
-        static const uint8_t MOUSE_ALL    = MOUSE_MIDDLE | MOUSE_RIGHT | MOUSE_LEFT;
+        static const uint8_t BUTTON_LEFT   = 1;
+        static const uint8_t BUTTON_RIGHT  = 2;
+        static const uint8_t BUTTON_MIDDLE = 4;
+        static const uint8_t BUTTON_ALL    = BUTTON_MIDDLE | BUTTON_RIGHT | BUTTON_LEFT;
         
-	Mouse_(HIDGeneric* hid_p);
+	Mouse(HIDGeneric* hid_p);
 	void begin(void);
 	void end(void);
-	void click(uint8_t b = MOUSE_LEFT);
+	void click(uint8_t b = BUTTON_LEFT);
 	void move(signed char x, signed char y, signed char wheel = 0);
-	void press(uint8_t b = MOUSE_LEFT);	// press LEFT by default
-	void release(uint8_t b = MOUSE_LEFT);   // release LEFT by default
-	bool isPressed(uint8_t b = MOUSE_ALL);  // check all buttons by default
+	void press(uint8_t b = BUTTON_LEFT);	// press LEFT by default
+	void release(uint8_t b = BUTTON_LEFT);   // release LEFT by default
+	bool isPressed(uint8_t b = BUTTON_ALL);  // check all buttons by default
 
       private:
 	void buttons(uint8_t b);
 
-	uint8_t buttons_m;
+	uint8_t     buttons_m;
+        HIDGeneric* hid_mp;
     };
 
 
@@ -86,42 +90,42 @@ class HIDGeneric {
       public:
 
         // Constants
-        static const uint8_t KEY_LEFT_CTRL   = 0x80;
-        static const uint8_t KEY_LEFT_SHIFT  = 0x81;
-        static const uint8_t KEY_LEFT_ALT    = 0x82;
-        static const uint8_t KEY_LEFT_GUI    = 0x83;
-        static const uint8_t KEY_RIGHT_CTRL  = 0x84;
-        static const uint8_t KEY_RIGHT_SHIFT = 0x85;
-        static const uint8_t KEY_RIGHT_ALT   = 0x86;
-        static const uint8_t KEY_RIGHT_GUI   = 0x87;
+        static const uint8_t KEYBOARD_LEFT_CTRL   = 0x80;
+        static const uint8_t KEYBOARD_LEFT_SHIFT  = 0x81;
+        static const uint8_t KEYBOARD_LEFT_ALT    = 0x82;
+        static const uint8_t KEYBOARD_LEFT_GUI    = 0x83;
+        static const uint8_t KEYBOARD_RIGHT_CTRL  = 0x84;
+        static const uint8_t KEYBOARD_RIGHT_SHIFT = 0x85;
+        static const uint8_t KEYBOARD_RIGHT_ALT   = 0x86;
+        static const uint8_t KEYBOARD_RIGHT_GUI   = 0x87;
 
-        static const uint8_t KEY_UP_ARROW    = 0xDA;
-        static const uint8_t KEY_DOWN_ARROW  = 0xD9;
-        static const uint8_t KEY_LEFT_ARROW  = 0xD8;
-        static const uint8_t KEY_RIGHT_ARROW = 0xD7;
-        static const uint8_t KEY_BACKSPACE   = 0xB2;
-        static const uint8_t KEY_TAB         = 0xB3;
-        static const uint8_t KEY_RETURN      = 0xB0;
-        static const uint8_t KEY_ESC         = 0xB1;
-        static const uint8_t KEY_INSERT      = 0xD1;
-        static const uint8_t KEY_DELETE      = 0xD4;
-        static const uint8_t KEY_PAGE_UP     = 0xD3;
-        static const uint8_t KEY_PAGE_DOWN   = 0xD6;
-        static const uint8_t KEY_HOME        = 0xD2;
-        static const uint8_t KEY_END         = 0xD5;
-        static const uint8_t KEY_CAPS_LOCK   = 0xC1;
-        static const uint8_t KEY_F1          = 0xC2;
-        static const uint8_t KEY_F2          = 0xC3;
-        static const uint8_t KEY_F3          = 0xC4;
-        static const uint8_t KEY_F4          = 0xC5;
-        static const uint8_t KEY_F5          = 0xC6;
-        static const uint8_t KEY_F6          = 0xC7;
-        static const uint8_t KEY_F7          = 0xC8;
-        static const uint8_t KEY_F8          = 0xC9;
-        static const uint8_t KEY_F9          = 0xCA;
-        static const uint8_t KEY_F10         = 0xCB;
-        static const uint8_t KEY_F11         = 0xCC;
-        static const uint8_t KEY_F12         = 0xCD;
+        static const uint8_t KEYBOARD_UP_ARROW    = 0xDA;
+        static const uint8_t KEYBOARD_DOWN_ARROW  = 0xD9;
+        static const uint8_t KEYBOARD_LEFT_ARROW  = 0xD8;
+        static const uint8_t KEYBOARD_RIGHT_ARROW = 0xD7;
+        static const uint8_t KEYBOARD_BACKSPACE   = 0xB2;
+        static const uint8_t KEYBOARD_TAB         = 0xB3;
+        static const uint8_t KEYBOARD_RETURN      = 0xB0;
+        static const uint8_t KEYBOARD_ESC         = 0xB1;
+        static const uint8_t KEYBOARD_INSERT      = 0xD1;
+        static const uint8_t KEYBOARD_DELETE      = 0xD4;
+        static const uint8_t KEYBOARD_PAGE_UP     = 0xD3;
+        static const uint8_t KEYBOARD_PAGE_DOWN   = 0xD6;
+        static const uint8_t KEYBOARD_HOME        = 0xD2;
+        static const uint8_t KEYBOARD_END         = 0xD5;
+        static const uint8_t KEYBOARD_CAPS_LOCK   = 0xC1;
+        static const uint8_t KEYBOARD_F1          = 0xC2;
+        static const uint8_t KEYBOARD_F2          = 0xC3;
+        static const uint8_t KEYBOARD_F3          = 0xC4;
+        static const uint8_t KEYBOARD_F4          = 0xC5;
+        static const uint8_t KEYBOARD_F5          = 0xC6;
+        static const uint8_t KEYBOARD_F6          = 0xC7;
+        static const uint8_t KEYBOARD_F7          = 0xC8;
+        static const uint8_t KEYBOARD_F8          = 0xC9;
+        static const uint8_t KEYBOARD_F9          = 0xCA;
+        static const uint8_t KEYBOARD_F10         = 0xCB;
+        static const uint8_t KEYBOARD_F11         = 0xCC;
+        static const uint8_t KEYBOARD_F12         = 0xCD;
 
         // Public types
         typedef struct {
@@ -141,22 +145,28 @@ class HIDGeneric {
         
       private:
 
+        static const uint8_t asciimap[128];
+
+
         // Private methods
 	void sendReport(KeyReport* keys);
 
         // Data members
-        KeyReport  keys_m;
+        KeyReport   keys_m;
+        HIDGeneric* hid_mp;
 
     };
 
   private:
+
+    static const uint8_t hidReportDescriptor[192];
     
     // HIDGeneric data members
     Mouse         mouse_m;
     Keyboard      keyboard_m;
-    HIDTransport* transport_mp;
+    Transport*    transport_mp;
 
-}
+};
 
 
 #endif

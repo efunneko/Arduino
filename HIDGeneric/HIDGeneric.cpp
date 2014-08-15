@@ -29,8 +29,9 @@
 */
 
 #include "Arduino.h"
+#include "HIDGeneric.h"
 
-#ifdef HID_ENABLED
+//#ifdef HID_ENABLED
 
 //#define RAWHID_ENABLED
 
@@ -48,7 +49,7 @@
 #define RAWHID_TX_SIZE      64
 #define RAWHID_RX_SIZE      64
 
-extern const uint8_t _hidReportDescriptor[] = {
+const uint8_t HIDGeneric::hidReportDescriptor[192] = {
     //        Mouse
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)        // 54
     0x09, 0x02,                    // USAGE (Mouse)
@@ -131,71 +132,44 @@ extern const uint8_t _hidReportDescriptor[] = {
 #endif
 };
 
-_Pragma("pack(1)")
-extern const HIDDescriptor _hidInterface =
-{
-    D_INTERFACE(HID_INTERFACE,1,3,0,0),
-    D_HIDREPORT(sizeof(_hidReportDescriptor)),
-    D_ENDPOINT(USB_ENDPOINT_IN(HID_ENDPOINT_INT),USB_ENDPOINT_TYPE_INTERRUPT,0x40,0x01)
-};
-_Pragma("pack()")
+// typedef struct
+// {
+// 	uint8_t len;			// 9
+// 	uint8_t dtype;			// 0x21
+// 	uint8_t addr;
+// 	uint8_t	versionL;		// 0x101
+// 	uint8_t	versionH;		// 0x101
+// 	uint8_t	country;
+// 	uint8_t	desctype;		// 0x22 report
+// 	uint8_t	descLenL;
+// 	uint8_t	descLenH;
+// } HIDDescDescriptor;
+// 
+// typedef struct
+// {
+// 	InterfaceDescriptor		hid;
+// 	HIDDescDescriptor		desc;
+// 	EndpointDescriptor		in;
+// } HIDDescriptor;
+// 
+// 
+// _Pragma("pack(1)")
+// extern const HIDDescriptor _hidInterface =
+// {
+//     D_INTERFACE(HID_INTERFACE,1,3,0,0),
+//     D_HIDREPORT(sizeof(_hidReportDescriptor)),
+//     D_ENDPOINT(USB_ENDPOINT_IN(HID_ENDPOINT_INT),USB_ENDPOINT_TYPE_INTERRUPT,0x40,0x01)
+// };
+// _Pragma("pack()")
 
 //================================================================================
 //================================================================================
 //        Driver
 
-uint8_t _hid_protocol = 1;
-uint8_t _hid_idle = 1;
+//uint8_t _hid_protocol = 1;
+//uint8_t _hid_idle = 1;
 
 #define WEAK __attribute__ ((weak))
-
-int WEAK HID_GetInterface(uint8_t* interfaceNum)
-{
-    interfaceNum[0] += 1;        // uses 1
-    return USBD_SendControl(0,&_hidInterface,sizeof(_hidInterface));
-}
-
-int WEAK HID_GetDescriptor(int i)
-{
-    return USBD_SendControl(0,_hidReportDescriptor,sizeof(_hidReportDescriptor));
-}
-
-
-bool WEAK HID_Setup(Setup& setup)
-{
-    uint8_t r = setup.bRequest;
-    uint8_t requestType = setup.bmRequestType;
-
-    if (REQUEST_DEVICETOHOST_CLASS_INTERFACE == requestType)
-        {
-            if (HID_GET_REPORT == r)
-                {
-                    //HID_GetReport();
-                    return true;
-                }
-            if (HID_GET_PROTOCOL == r)
-                {
-                    //Send8(_hid_protocol);        // TODO
-                    return true;
-                }
-        }
-
-    if (REQUEST_HOSTTODEVICE_CLASS_INTERFACE == requestType)
-        {
-            if (HID_SET_PROTOCOL == r)
-                {
-                    _hid_protocol = setup.wValueL;
-                    return true;
-                }
-
-            if (HID_SET_IDLE == r)
-                {
-                    _hid_idle = setup.wValueL;
-                    return true;
-                }
-        }
-    return false;
-}
 
 
 // HIDGeneric Methods
@@ -204,6 +178,12 @@ HIDGeneric::HIDGeneric(HIDGeneric::Transport* transport_p) :
     mouse_m(this),
     keyboard_m(this),
     transport_mp(transport_p)
+{
+
+}
+
+void 
+HIDGeneric::begin(void)
 {
 }
 
@@ -222,6 +202,58 @@ HIDGeneric::sendReport(
         p[i+1] = d[i];
     transport_mp->sendReport(p, len+1);
 }
+
+
+bool HIDGeneric::setup(Setup& setup)
+{
+//     uint8_t r = setup.bRequest;
+//     uint8_t requestType = setup.bmRequestType;
+//     
+//     if (REQUEST_DEVICETOHOST_CLASS_INTERFACE == requestType) {
+//         if (HID_GET_REPORT == r) {
+//                 //HID_GetReport();
+//                 return true;
+//         }
+//         if (HID_GET_PROTOCOL == r)
+//         {
+//             //Send8(_hid_protocol);        // TODO
+//             return true;
+//         }
+//     }
+// 
+//     if (REQUEST_HOSTTODEVICE_CLASS_INTERFACE == requestType)
+//     {
+//         if (HID_SET_PROTOCOL == r)
+//         {
+//             _hid_protocol = setup.wValueL;
+//             return true;
+//         }
+//         
+//         if (HID_SET_IDLE == r)
+//         {
+//             _hid_idle = setup.wValueL;
+//             return true;
+//         }
+//     }
+//     return false;
+    return true;
+}
+
+int 
+HIDGeneric::getInterface(uint8_t* interfaceNum)
+{
+    interfaceNum[0] += 1;        // uses 1
+    //   return transport_mp->sendControl(0,&_hidInterface,sizeof(_hidInterface));
+    return 1;
+}
+
+int 
+HIDGeneric::getDescriptor(int i)
+{
+//    return transport_mp->sendControl(0,_hidReportDescriptor,sizeof(_hidReportDescriptor));
+    return 1;
+}
+
 
 
 // HIDGeneric::Mouse Methods
@@ -291,7 +323,8 @@ bool HIDGeneric::Mouse::isPressed(uint8_t b)
 
 // HIDGeneric Keyboard Methods
 
-HIDGeneric::Keyboard::Keyboard_(void)
+HIDGeneric::Keyboard::Keyboard(HIDGeneric* hid_p):
+    hid_mp(hid_p)
 {
 }
 
@@ -308,8 +341,8 @@ void HIDGeneric::Keyboard::sendReport(KeyReport* keys)
     hid_mp->sendReport(2,keys,sizeof(KeyReport));
 }
 
-#define SHIFT 0x80
-extern const uint8_t _asciimap[128] =
+static const uint32_t SHIFT_KEY = 0x80;
+const uint8_t HIDGeneric::Keyboard::asciimap[128] =
 {
     0x00,             // NUL
     0x00,             // SOH
@@ -345,17 +378,17 @@ extern const uint8_t _asciimap[128] =
     0x00,             // US
 
     0x2c,                   //  ' '
-    0x1e|SHIFT,           // !
-    0x34|SHIFT,           // "
-    0x20|SHIFT,    // #
-    0x21|SHIFT,    // $
-    0x22|SHIFT,    // %
-    0x24|SHIFT,    // &
+    0x1e|SHIFT_KEY,           // !
+    0x34|SHIFT_KEY,           // "
+    0x20|SHIFT_KEY,    // #
+    0x21|SHIFT_KEY,    // $
+    0x22|SHIFT_KEY,    // %
+    0x24|SHIFT_KEY,    // &
     0x34,          // '
-    0x26|SHIFT,    // (
-    0x27|SHIFT,    // )
-    0x25|SHIFT,    // *
-    0x2e|SHIFT,    // +
+    0x26|SHIFT_KEY,    // (
+    0x27|SHIFT_KEY,    // )
+    0x25|SHIFT_KEY,    // *
+    0x2e|SHIFT_KEY,    // +
     0x36,          // ,
     0x2d,          // -
     0x37,          // .
@@ -370,44 +403,44 @@ extern const uint8_t _asciimap[128] =
     0x24,          // 7
     0x25,          // 8
     0x26,          // 9
-    0x33|SHIFT,      // :
+    0x33|SHIFT_KEY,      // :
     0x33,          // ;
-    0x36|SHIFT,      // <
+    0x36|SHIFT_KEY,      // <
     0x2e,          // =
-    0x37|SHIFT,      // >
-    0x38|SHIFT,      // ?
-    0x1f|SHIFT,      // @
-    0x04|SHIFT,      // A
-    0x05|SHIFT,      // B
-    0x06|SHIFT,      // C
-    0x07|SHIFT,      // D
-    0x08|SHIFT,      // E
-    0x09|SHIFT,      // F
-    0x0a|SHIFT,      // G
-    0x0b|SHIFT,      // H
-    0x0c|SHIFT,      // I
-    0x0d|SHIFT,      // J
-    0x0e|SHIFT,      // K
-    0x0f|SHIFT,      // L
-    0x10|SHIFT,      // M
-    0x11|SHIFT,      // N
-    0x12|SHIFT,      // O
-    0x13|SHIFT,      // P
-    0x14|SHIFT,      // Q
-    0x15|SHIFT,      // R
-    0x16|SHIFT,      // S
-    0x17|SHIFT,      // T
-    0x18|SHIFT,      // U
-    0x19|SHIFT,      // V
-    0x1a|SHIFT,      // W
-    0x1b|SHIFT,      // X
-    0x1c|SHIFT,      // Y
-    0x1d|SHIFT,      // Z
+    0x37|SHIFT_KEY,      // >
+    0x38|SHIFT_KEY,      // ?
+    0x1f|SHIFT_KEY,      // @
+    0x04|SHIFT_KEY,      // A
+    0x05|SHIFT_KEY,      // B
+    0x06|SHIFT_KEY,      // C
+    0x07|SHIFT_KEY,      // D
+    0x08|SHIFT_KEY,      // E
+    0x09|SHIFT_KEY,      // F
+    0x0a|SHIFT_KEY,      // G
+    0x0b|SHIFT_KEY,      // H
+    0x0c|SHIFT_KEY,      // I
+    0x0d|SHIFT_KEY,      // J
+    0x0e|SHIFT_KEY,      // K
+    0x0f|SHIFT_KEY,      // L
+    0x10|SHIFT_KEY,      // M
+    0x11|SHIFT_KEY,      // N
+    0x12|SHIFT_KEY,      // O
+    0x13|SHIFT_KEY,      // P
+    0x14|SHIFT_KEY,      // Q
+    0x15|SHIFT_KEY,      // R
+    0x16|SHIFT_KEY,      // S
+    0x17|SHIFT_KEY,      // T
+    0x18|SHIFT_KEY,      // U
+    0x19|SHIFT_KEY,      // V
+    0x1a|SHIFT_KEY,      // W
+    0x1b|SHIFT_KEY,      // X
+    0x1c|SHIFT_KEY,      // Y
+    0x1d|SHIFT_KEY,      // Z
     0x2f,          // [
     0x31,          // bslash
     0x30,          // ]
-    0x23|SHIFT,    // ^
-    0x2d|SHIFT,    // _
+    0x23|SHIFT_KEY,    // ^
+    0x2d|SHIFT_KEY,    // _
     0x35,          // `
     0x04,          // a
     0x05,          // b
@@ -435,10 +468,10 @@ extern const uint8_t _asciimap[128] =
     0x1b,          // x
     0x1c,          // y
     0x1d,          // z
-    0x2f|SHIFT,    //
-    0x31|SHIFT,    // |
-    0x30|SHIFT,    // }
-    0x35|SHIFT,    // ~
+    0x2f|SHIFT_KEY,    //
+    0x31|SHIFT_KEY,    // |
+    0x30|SHIFT_KEY,    // }
+    0x35|SHIFT_KEY,    // ~
     0                                // DEL
 };
 
@@ -456,9 +489,9 @@ size_t HIDGeneric::Keyboard::press(uint8_t k)
         keys_m.modifiers |= (1<<(k-128));
         k = 0;
     } else {                                // it's a printing key
-        k = _asciimap[k];
+        k = asciimap[k];
         if (!k) {
-            setWriteError();
+//            setWriteError();
             return 0;
         }
         if (k & 0x80) {                                                // it's a capital letter or other character reached with shift
@@ -480,7 +513,7 @@ size_t HIDGeneric::Keyboard::press(uint8_t k)
             }
         }
         if (i == 6) {
-            setWriteError();
+//            setWriteError();
             return 0;
         }
     }
@@ -500,7 +533,7 @@ size_t HIDGeneric::Keyboard::release(uint8_t k)
         keys_m.modifiers &= ~(1<<(k-128));
         k = 0;
     } else {                                // it's a printing key
-        k = _asciimap[k];
+        k = asciimap[k];
         if (!k) {
             return 0;
         }
@@ -544,4 +577,4 @@ size_t HIDGeneric::Keyboard::write(uint8_t c)
     return (p);                // Just return the result of press() since release() almost always returns 1
 }
 
-#endif
+//#endif

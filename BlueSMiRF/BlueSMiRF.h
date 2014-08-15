@@ -30,21 +30,40 @@
 // tied directly to the USB driver. This means that it can be used
 // for both USB and Bluetooth (and possibly other transports in the future)
 
+template 
 class BlueSMiRF {
-  public:
+    public:
     
     // Transport class
     //
-    // This is a pure virtual class. It should be inherited from to
-    // provide a bridge into the appropriate transport
+    // This class defines the set of callbacks that can be given
+    // to HIDGeneric to call this to transmit the HID data
     class Transport : public HIDGeneric::Transport {
     public:
-      Transport(){}
-      virtual ~Transport(){};
-      virtual void sendReport(const void* data, uint32_t len) {};        
-      virtual int sendControl(uint8_t flags, const void* d, uint32_t len) {};
+        Transport(){}
+        virtual ~Transport(){};
+        virtual void sendReport(const void* data, uint32_t len) {};        
+        virtual int sendControl(uint8_t flags, const void* d, uint32_t len) {};
     };
-  
+    
+    // Serial class
+    //
+    // This is a pure virtual class that must be overrided to 
+    // define the serial method to deliver data to the BlueSMiRF module
+    class Serial {
+    public:
+        Serial(){}
+        virtual ~Serial(){};
+
+	virtual int available(void) = 0;
+	virtual int peek(void);
+	virtual int read(void);
+	virtual void flush(void);
+	virtual size_t write(uint8_t);
+	virtual size_t write(const uint8_t*, size_t);
+	operator bool();
+    };
+    
     // BlueSMiRF public methods
     BlueSMiRF();
 
