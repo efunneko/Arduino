@@ -49,7 +49,7 @@
 #define RAWHID_TX_SIZE      64
 #define RAWHID_RX_SIZE      64
 
-const uint8_t HIDGeneric::hidReportDescriptor[192] = {
+const uint8_t HIDGenericImpl::hidReportDescriptor[192] = {
     //        Mouse
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)        // 54
     0x09, 0x02,                    // USAGE (Mouse)
@@ -172,9 +172,9 @@ const uint8_t HIDGeneric::hidReportDescriptor[192] = {
 #define WEAK __attribute__ ((weak))
 
 
-// HIDGeneric Methods
+// HIDGenericImpl Methods
 
-HIDGeneric::HIDGeneric(HIDGeneric::Transport* transport_p) :
+HIDGenericImpl::HIDGenericImpl(HIDGenericImpl::Transport* transport_p) :
     mouse_m(this),
     keyboard_m(this),
     transport_mp(transport_p)
@@ -183,12 +183,12 @@ HIDGeneric::HIDGeneric(HIDGeneric::Transport* transport_p) :
 }
 
 void 
-HIDGeneric::begin(void)
+HIDGenericImpl::begin(void)
 {
 }
 
 void 
-HIDGeneric::sendReport(
+HIDGenericImpl::sendReport(
     uint8_t id, 
     const void* data, 
     uint32_t len
@@ -200,11 +200,12 @@ HIDGeneric::sendReport(
     p[0] = id;
     for (uint32_t i=0; i<len; i++)
         p[i+1] = d[i];
+    Serial.println("Hid sending report");
     transport_mp->sendReport(p, len+1);
 }
 
 
-bool HIDGeneric::setup(Setup& setup)
+bool HIDGenericImpl::setup(Setup& setup)
 {
 //     uint8_t r = setup.bRequest;
 //     uint8_t requestType = setup.bmRequestType;
@@ -240,7 +241,7 @@ bool HIDGeneric::setup(Setup& setup)
 }
 
 int 
-HIDGeneric::getInterface(uint8_t* interfaceNum)
+HIDGenericImpl::getInterface(uint8_t* interfaceNum)
 {
     interfaceNum[0] += 1;        // uses 1
     //   return transport_mp->sendControl(0,&_hidInterface,sizeof(_hidInterface));
@@ -248,7 +249,7 @@ HIDGeneric::getInterface(uint8_t* interfaceNum)
 }
 
 int 
-HIDGeneric::getDescriptor(int i)
+HIDGenericImpl::getDescriptor(int i)
 {
 //    return transport_mp->sendControl(0,_hidReportDescriptor,sizeof(_hidReportDescriptor));
     return 1;
@@ -256,24 +257,24 @@ HIDGeneric::getDescriptor(int i)
 
 
 
-// HIDGeneric::Mouse Methods
+// HIDGenericImpl::Mouse Methods
 
-HIDGeneric::Mouse::Mouse(HIDGeneric* hid_p) : 
+HIDGenericImpl::Mouse::Mouse(HIDGenericImpl* hid_p) : 
     hid_mp(hid_p),
     buttons_m(0)
 {
 }
 
 void 
-HIDGeneric::Mouse::begin(void)
+HIDGenericImpl::Mouse::begin(void)
 {
 }
 
-void HIDGeneric::Mouse::end(void)
+void HIDGenericImpl::Mouse::end(void)
 {
 }
 
-void HIDGeneric::Mouse::click(uint8_t b)
+void HIDGenericImpl::Mouse::click(uint8_t b)
 {
     buttons_m = b;
     move(0,0,0);
@@ -281,7 +282,7 @@ void HIDGeneric::Mouse::click(uint8_t b)
     move(0,0,0);
 }
 
-void HIDGeneric::Mouse::move(
+void HIDGenericImpl::Mouse::move(
     signed char x, 
     signed char y, 
     signed char wheel
@@ -295,7 +296,7 @@ void HIDGeneric::Mouse::move(
     hid_mp->sendReport(1,m,4);
 }
 
-void HIDGeneric::Mouse::buttons(uint8_t b)
+void HIDGenericImpl::Mouse::buttons(uint8_t b)
 {
     if (b != buttons_m) {
         buttons_m = b;
@@ -303,17 +304,17 @@ void HIDGeneric::Mouse::buttons(uint8_t b)
     }
 }
 
-void HIDGeneric::Mouse::press(uint8_t b)
+void HIDGenericImpl::Mouse::press(uint8_t b)
 {
     buttons(buttons_m | b);
 }
 
-void HIDGeneric::Mouse::release(uint8_t b)
+void HIDGenericImpl::Mouse::release(uint8_t b)
 {
     buttons(buttons_m & ~b);
 }
 
-bool HIDGeneric::Mouse::isPressed(uint8_t b)
+bool HIDGenericImpl::Mouse::isPressed(uint8_t b)
 {
     return ((b & buttons_m) == b);
 }
@@ -321,28 +322,29 @@ bool HIDGeneric::Mouse::isPressed(uint8_t b)
 
 
 
-// HIDGeneric Keyboard Methods
+// HIDGenericImpl Keyboard Methods
 
-HIDGeneric::Keyboard::Keyboard(HIDGeneric* hid_p):
+HIDGenericImpl::Keyboard::Keyboard(HIDGenericImpl* hid_p):
     hid_mp(hid_p)
 {
 }
 
-void HIDGeneric::Keyboard::begin(void)
+void HIDGenericImpl::Keyboard::begin(void)
 {
 }
 
-void HIDGeneric::Keyboard::end(void)
+void HIDGenericImpl::Keyboard::end(void)
 {
 }
 
-void HIDGeneric::Keyboard::sendReport(KeyReport* keys)
+void HIDGenericImpl::Keyboard::sendReport(KeyReport* keys)
 {
+    Serial.println("Sending report");
     hid_mp->sendReport(2,keys,sizeof(KeyReport));
 }
 
 static const uint32_t SHIFT_KEY = 0x80;
-const uint8_t HIDGeneric::Keyboard::asciimap[128] =
+const uint8_t HIDGenericImpl::Keyboard::asciimap[128] =
 {
     0x00,             // NUL
     0x00,             // SOH
@@ -480,7 +482,7 @@ const uint8_t HIDGeneric::Keyboard::asciimap[128] =
 // to the persistent key report and sends the report.  Because of the way
 // USB HID works, the host acts like the key remains pressed until we
 // call release(), releaseAll(), or otherwise clear the report and resend.
-size_t HIDGeneric::Keyboard::press(uint8_t k)
+size_t HIDGenericImpl::Keyboard::press(uint8_t k)
 {
     uint8_t i;
     if (k >= 136) {                        // it's a non-printing key (not a modifier)
@@ -524,7 +526,7 @@ size_t HIDGeneric::Keyboard::press(uint8_t k)
 // release() takes the specified key out of the persistent key report and
 // sends the report.  This tells the OS the key is no longer pressed and that
 // it shouldn't be repeated any more.
-size_t HIDGeneric::Keyboard::release(uint8_t k)
+size_t HIDGenericImpl::Keyboard::release(uint8_t k)
 {
     uint8_t i;
     if (k >= 136) {                        // it's a non-printing key (not a modifier)
@@ -555,7 +557,7 @@ size_t HIDGeneric::Keyboard::release(uint8_t k)
     return 1;
 }
 
-void HIDGeneric::Keyboard::releaseAll(void)
+void HIDGenericImpl::Keyboard::releaseAll(void)
 {
     keys_m.keys[0] = 0;
     keys_m.keys[1] = 0;
@@ -567,10 +569,12 @@ void HIDGeneric::Keyboard::releaseAll(void)
     sendReport(&keys_m);
 }
 
-size_t HIDGeneric::Keyboard::write(uint8_t c)
+size_t HIDGenericImpl::Keyboard::write(uint8_t c)
 {
     uint8_t p = 0;
 
+    Serial.print("Sending character: ");
+    Serial.println(c);
     p = press(c);        // Keydown
     release(c);                // Keyup
 

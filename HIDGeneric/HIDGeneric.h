@@ -29,7 +29,8 @@
 // tied directly to the USB driver. This means that it can be used
 // for both USB and Bluetooth (and possibly other transports in the future)
 
-class HIDGeneric {
+
+class HIDGenericImpl {
   public:
     
     // Transport class
@@ -41,17 +42,8 @@ class HIDGeneric {
         Transport(){}
         virtual ~Transport(){};
         virtual void sendReport(const void* data, uint32_t len) = 0;        
-        virtual int sendControl(uint8_t flags, const void* d, uint32_t len) = 0;
+        virtual void sendControl(uint8_t flags, const void* d, uint32_t len) = 0;
     };
-
-    // HIDGeneric public methods
-    HIDGeneric(Transport* transport_p);
-
-    void begin(void);
-    int	getInterface(uint8_t* interfaceNum);
-    int getDescriptor(int i);
-    bool setup(Setup& setup);
-    void sendReport(uint8_t id, const void* data, uint32_t len);
 
     // Mouse class
     //
@@ -65,12 +57,12 @@ class HIDGeneric {
         static const uint8_t BUTTON_MIDDLE = 4;
         static const uint8_t BUTTON_ALL    = BUTTON_MIDDLE | BUTTON_RIGHT | BUTTON_LEFT;
         
-	Mouse(HIDGeneric* hid_p);
+	Mouse(HIDGenericImpl* hid_p);
 	void begin(void);
 	void end(void);
 	void click(uint8_t b = BUTTON_LEFT);
 	void move(signed char x, signed char y, signed char wheel = 0);
-	void press(uint8_t b = BUTTON_LEFT);	// press LEFT by default
+	void press(uint8_t b = BUTTON_LEFT);	 // press LEFT by default
 	void release(uint8_t b = BUTTON_LEFT);   // release LEFT by default
 	bool isPressed(uint8_t b = BUTTON_ALL);  // check all buttons by default
 
@@ -78,7 +70,7 @@ class HIDGeneric {
 	void buttons(uint8_t b);
 
 	uint8_t     buttons_m;
-        HIDGeneric* hid_mp;
+        HIDGenericImpl* hid_mp;
     };
 
 
@@ -135,7 +127,7 @@ class HIDGeneric {
         } KeyReport;
 
         // Methods
-        Keyboard(HIDGeneric* hid_p);
+        Keyboard(HIDGenericImpl* hid_p);
 	void begin(void);
 	void end(void);
 	size_t write(uint8_t key);
@@ -153,20 +145,95 @@ class HIDGeneric {
 
         // Data members
         KeyReport   keys_m;
-        HIDGeneric* hid_mp;
+        HIDGenericImpl* hid_mp;
 
     };
+
+
+    // HIDGenericImpl public methods
+    HIDGenericImpl(Transport* transport_p);
+
+    void begin(void);
+    int	getInterface(uint8_t* interfaceNum);
+    int getDescriptor(int i);
+    bool setup(Setup& setup);
+    void sendReport(uint8_t id, const void* data, uint32_t len);
+
+    Mouse& getMouse() {
+        return mouse_m;
+    }
+    
+    Keyboard& getKeyboard() {
+        return keyboard_m;
+    }
+
 
   private:
 
     static const uint8_t hidReportDescriptor[192];
     
-    // HIDGeneric data members
+    // HIDGenericImpl data members
     Mouse         mouse_m;
     Keyboard      keyboard_m;
     Transport*    transport_mp;
 
 };
+
+
+template <typename TransportClass>
+class HIDGeneric {
+  public:
+
+    // Typedefs
+    typedef HIDGenericImpl::Mouse    Mouse;
+    typedef HIDGenericImpl::Keyboard Keyboard;
+    
+    // Derived transport class to hook into the Implementation
+    class Transport : public HIDGenericImpl::Transport {
+    public:
+        Transport(TransportClass* transport_p) :
+            transport_mp(transport_p) {}
+        virtual ~Transport(){};
+        virtual void sendReport(const void* data, uint32_t len) {
+            transport_mp->sendReport(data, len);
+        }        
+        virtual void sendControl(uint8_t flags, const void* d, uint32_t len) {
+            transport_mp->sendControl(flags, d, len);
+        }                
+    private:
+        TransportClass* transport_mp;
+    };
+  
+  
+    HIDGeneric(TransportClass& transport) :
+        transImpl_m(&transport),
+        hidImpl_m(&transImpl_m),
+        transport_m(transport) {}
+
+    void begin() {
+        hidImpl_m.begin();
+    }
+    //bool setup(Setup& setup);
+    void sendReport(uint8_t id, const void* data, uint32_t len) {
+        hidImpl_m.sendReport(id, data, len);
+    } 
+       
+    Mouse& getMouse() {
+        return hidImpl_m.getMouse();
+    }
+    
+    Keyboard& getKeyboard() {
+        return hidImpl_m.getKeyboard();
+    }
+
+  private:
+    HIDGeneric::Transport transImpl_m;
+    HIDGenericImpl        hidImpl_m;
+    TransportClass&       transport_m;
+
+};
+
+
 
 
 #endif

@@ -15,71 +15,229 @@
 ** SOFTWARE.
 */
 
-#ifndef __BLUESMIRF_H__
-#define __BLUESMIRF_H__
+#ifndef __RN42_H__
+#define __RN42_H__
 
 #if defined __cplusplus
 
 #include "Arduino.h"
 #include "HIDGeneric.h"
 
-// BlueSMiRF
+// RN42
 //
-// This is quite similar to the existing (as of Aug 2014) USB HID
-// library that is provided with the Arduino IDE, but it is not
-// tied directly to the USB driver. This means that it can be used
-// for both USB and Bluetooth (and possibly other transports in the future)
+// This should be used with the Blue SMiRF HID breakout
+// board. It may also be able to be used by any RN-42 HID
+// device, but it has not yet been tested with anything other
+// than the Blue SMiRF
+//
+// Note that the class below is templated. This allows the
+// class to be instantiated with a wide variety of serial
+// classes which are used to talk to the Blue SMiRF board.
+//
+// You would create an object of this class like this:
+//
+// Ex 1 - If Serial0 is used to talk to it:
+//   Serial.begin(115200);
+//   RN42<typeof Serial> rn42Obj(Serial);
+//
+// Ex 2 - If Serial3 is used to talk to it:
+//   Serial.begin(115200);
+//   RN42<typeof Serial3> rn42Obj(Serial3);
+//   
+// Ex 3 - If you are using SoftwareSerial to talk to it:
+//   SoftwareSerial mySerial(10, 11);
+//   mySerial.begin(115200);
+//   RN42<typeof mySerial> rn42Obj(mySerial);
+//
+// If you are going to be using this with the HIDGeneric
+// library to make it easy to send keyboard or mouse events,
+// then you would then instantiate HIDGeneric object like this:
+//
+//   HIDGeneric<RN42> hid(rn42Obj);
+//
+// Then you can send keyboard events like this:
+//
+//   hid.getKeyboard().write('A');
+//
+// or
+//
+//   HIDGeneric<RN42>::Keyboard& keyboard = hid.getKeyboard();
+//   keyboard.write('A');
+//   keyboard.write('B');
+//
+// See the HIDGeneric docs for more info.
+//
 
-template 
-class BlueSMiRF {
+template <typename SerialClass>
+class RN42 {
     public:
     
-    // Transport class
+    // RN42 public methods
+    RN42(SerialClass& serial); 
+
+    // Initialization routine
     //
-    // This class defines the set of callbacks that can be given
-    // to HIDGeneric to call this to transmit the HID data
-    class Transport : public HIDGeneric::Transport {
-    public:
-        Transport(){}
-        virtual ~Transport(){};
-        virtual void sendReport(const void* data, uint32_t len) {};        
-        virtual int sendControl(uint8_t flags, const void* d, uint32_t len) {};
-    };
-    
-    // Serial class
-    //
-    // This is a pure virtual class that must be overrided to 
-    // define the serial method to deliver data to the BlueSMiRF module
-    class Serial {
-    public:
-        Serial(){}
-        virtual ~Serial(){};
+    // speed: baud rate of serial connection
+    void begin(uint32_t speed);
 
-	virtual int available(void) = 0;
-	virtual int peek(void);
-	virtual int read(void);
-	virtual void flush(void);
-	virtual size_t write(uint8_t);
-	virtual size_t write(const uint8_t*, size_t);
-	operator bool();
-    };
-    
-    // BlueSMiRF public methods
-    BlueSMiRF();
-
-    void begin(void);
-    void sendReport(uint8_t id, const void* data, uint32_t len);
+    // Methods required to be compatible with the HIDGeneric library
+    void sendReport(const void* data, uint32_t len);
     void sendControl(uint8_t flags, const void* data, uint32_t len);
-    Transport* getTransport(void) {
-        return &transport_m;
-    }
+
+    bool enterCommandMode();
+    void exitCommandMode();
+    String sendCommand(const String& command);
 
   private:
     
-    // BlueSMiRF data members
-    Transport     transport_m;
-
+    // RN42 data members
+    SerialClass&  serial_m;
 };
+
+
+// Method definitions - these must be included in the header file
+// due to the fact that the class is templated
+
+// RN42 Methods
+
+template <typename SerialClass>
+RN42<SerialClass>::RN42(SerialClass& serial) :
+    serial_m(serial)
+{
+
+}
+
+
+template <typename SerialClass>
+String
+RN42<SerialClass>::sendCommand(
+    const String& command
+)
+{
+    Serial.print("Sending command: ");
+    Serial.println(command);
+
+    serial_m.print(command);
+
+    String response;
+    while (true) {
+        if (serial_m.available()) {
+            char val = serial_m.read();
+            Serial.print("rx char: ");
+            Serial.println(val);
+            if (val == 13) {
+                break;
+            }
+            else {
+                response += val;
+            }
+        }
+    }
+
+    Serial.print("Response: ");
+    Serial.println(response);
+
+    return response;
+}
+
+
+template <typename SerialClass>
+bool
+RN42<SerialClass>::enterCommandMode()
+{
+    // Disconnect - if connected
+    serial_m.write((uint8_t)0);
+
+    String response = sendCommand("$$$");
+
+    if (response == "CMD") {
+        return true;
+    }
+    else {
+        return false;
+    }
+
+}
+
+template <typename SerialClass>
+void
+RN42<SerialClass>::exitCommandMode()
+{
+
+    sendCommand("---\r");
+
+}
+
+
+
+template <typename SerialClass>
+void 
+RN42<SerialClass>::begin(
+    uint32_t serialSpeed
+)
+{
+    Serial.println("Initializing bluetooth...");
+    return;
+    if (!enterCommandMode()) {
+        // TODO - add error here
+        return;
+    }
+
+    sendCommand("SH,0230\r");
+    sendCommand("CFR\r");
+
+    exitCommandMode();
+}
+
+
+template <typename SerialClass>
+void 
+RN42<SerialClass>::sendReport(
+    const void* data, 
+    uint32_t len
+)
+{
+    Serial.print("Sending a report of length: ");
+    Serial.println(len);
+
+    serial_m.write(0xfd);
+    serial_m.write(len);
+
+    // The HID class gives the descriptor backwards...
+    // TODO: Figure this out
+
+    const uint8_t* data_p = (const uint8_t*)data;
+    for (uint32_t i = 0; i < len; i++) {
+        Serial.print("Sending char: ");
+        uint8_t val = data_p[i];
+        if (i == 0) {
+            if (val == 1) {
+                val = 2;
+            }
+            else if (val == 2) {
+                val = 1;
+            }
+        }
+        Serial.println(val);
+        serial_m.write(val);
+    }
+}
+
+template <typename SerialClass>
+void 
+RN42<SerialClass>::sendControl(
+    uint8_t flags, 
+    const void* data, 
+    uint32_t len
+)
+{
+    const uint8_t* data_p = (const uint8_t*)data;
+    for (uint32_t i = 0; i < len; i++) {
+        serial_m.write(data_p[i]);
+    }
+}
+
+
 
 
 #endif

@@ -16,33 +16,8 @@
 */
 
 #include "Arduino.h"
-#include "BlueSMiRF.h"
+#include "RN42.h"
 
-
-// BlueSMiRF Methods
-
-BlueSMiRF::BlueSMiRF() :
-    transport_m()
-{
-}
-
-void 
-BlueSMiRF::sendReport(
-    uint8_t id, 
-    const void* data, 
-    uint32_t len
-)
-{
-}
-
-void 
-BlueSMiRF::sendControl(
-    uint8_t flags, 
-    const void* data, 
-    uint32_t len
-)
-{
-}
 
 
 
